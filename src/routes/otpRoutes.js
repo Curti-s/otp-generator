@@ -1,19 +1,16 @@
 const express = require('express');
 const { requestOtp, verifyOtp } = require('../services/otpService');
+const { requireAuthApi } = require('../middleware/auth');
 
 const router = express.Router();
 
-const isValidEmail = (email) => typeof email === 'string' && /\S+@\S+\.\S+/.test(email);
+router.use(requireAuthApi);
 
 router.post('/request', async (req, res) => {
-  const { email } = req.body;
-
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ error: 'A valid email is required.' });
-  }
+  const { email, id: userId } = req.session.user;
 
   try {
-    await requestOtp(email);
+    await requestOtp(email, userId);
     return res.json({ message: 'Code sent.' });
   } catch (err) {
     if (err.code === 'COOLDOWN') {
@@ -25,14 +22,15 @@ router.post('/request', async (req, res) => {
 });
 
 router.post('/verify', async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, id: userId } = req.session.user;
+  const { otp } = req.body;
 
-  if (!isValidEmail(email) || typeof otp !== 'string') {
-    return res.status(400).json({ error: 'Email and code are required.' });
+  if (typeof otp !== 'string') {
+    return res.status(400).json({ error: 'Code is required.' });
   }
 
   try {
-    await verifyOtp(email, otp);
+    await verifyOtp(email, otp, userId);
     return res.json({ message: 'Verified.' });
   } catch (err) {
     if (['NOT_FOUND', 'TOO_MANY_ATTEMPTS', 'INVALID'].includes(err.code)) {

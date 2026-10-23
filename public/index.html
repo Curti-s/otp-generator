@@ -11,13 +11,18 @@
   button { padding: 0.5rem 1rem; cursor: pointer; }
   #message { margin-top: 1rem; font-size: 0.9rem; }
   #verify-step { display: none; }
+  #whoami { font-size: 0.85rem; color: #555; display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
 <body>
-  <h1>Email OTP Login</h1>
+  <div id="whoami">
+    <span id="whoami-text">Loading...</span>
+    <button id="logout-btn">Log out</button>
+  </div>
+
+  <h1>Email OTP Verification</h1>
 
   <div id="request-step">
-    <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
     <button id="request-btn">Send code</button>
   </div>
 
@@ -29,24 +34,33 @@
   <div id="message"></div>
 
   <script>
-    const requestStep = document.getElementById('request-step');
     const verifyStep = document.getElementById('verify-step');
     const messageEl = document.getElementById('message');
-    const emailInput = document.getElementById('email');
     const otpInput = document.getElementById('otp');
+    const whoamiText = document.getElementById('whoami-text');
 
     function showMessage(text, isError = false) {
       messageEl.textContent = text;
       messageEl.style.color = isError ? 'crimson' : 'green';
     }
 
+    async function loadUser() {
+      const res = await fetch('/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login';
+        return;
+      }
+      const { user } = await res.json();
+      whoamiText.textContent = `Signed in as ${user.email}`;
+    }
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    });
+
     document.getElementById('request-btn').addEventListener('click', async () => {
-      const email = emailInput.value.trim();
-      const res = await fetch('/otp/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      const res = await fetch('/otp/request', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       const data = await res.json();
       if (res.ok) {
         showMessage(data.message + ' Check the server console for the code (stubbed email).');
@@ -57,16 +71,17 @@
     });
 
     document.getElementById('verify-btn').addEventListener('click', async () => {
-      const email = emailInput.value.trim();
       const otp = otpInput.value.trim();
       const res = await fetch('/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp }),
+        body: JSON.stringify({ otp }),
       });
       const data = await res.json();
       showMessage(data.message || data.error, !res.ok);
     });
+
+    loadUser();
   </script>
 </body>
 </html>

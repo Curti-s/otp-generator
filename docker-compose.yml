@@ -7,10 +7,33 @@ services:
       - .env
     environment:
       REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgres://otp:otp@postgres:5432/otp
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: otp
+      POSTGRES_PASSWORD: otp
+      POSTGRES_DB: otp
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U otp -d otp"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

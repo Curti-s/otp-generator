@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sign In</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 360px; margin: 6rem auto; padding: 0 1rem; text-align: center; }
+  h1 { font-size: 1.25rem; }
+  #message { margin-top: 1rem; font-size: 0.9rem; color: crimson; }
+</style>
+</head>
+<body>
+  <h1>Sign in to continue</h1>
+  <div id="buttonDiv"></div>
+  <div id="message"></div>
+
+  <script>
+    function onGoogleLibraryLoad() {
+      fetch('/auth/config')
+        .then((res) => res.json())
+        .then(({ clientId }) => {
+          google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleCredentialResponse,
+          });
+          google.accounts.id.renderButton(document.getElementById('buttonDiv'), {
+            theme: 'outline',
+            size: 'large',
+          });
+        });
+    }
+
+    async function handleCredentialResponse(response) {
+      const res = await fetch('/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+
+      if (res.ok) {
+        window.location.href = '/';
+      } else {
+        const data = await res.json();
+        document.getElementById('message').textContent = data.error || 'Sign-in failed.';
+      }
+    }
+  </script>
+  <script src="https://accounts.google.com/gsi/client?onload=onGoogleLibraryLoad" async defer></script>
+</body>
+</html>
