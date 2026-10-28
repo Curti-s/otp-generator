@@ -1,39 +1,49 @@
 services:
   app:
     build: .
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
     environment:
+      NODE_ENV: production
+      PORT: 3000
       REDIS_URL: redis://redis:6379
-      DATABASE_URL: postgres://otp:otp@postgres:5432/otp
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the internal Postgres connection string}
+      SESSION_SECRET: ${SESSION_SECRET:?Set a strong SESSION_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-}
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: otp
-      POSTGRES_PASSWORD: otp
-      POSTGRES_DB: otp
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-otp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-otp}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U otp -d otp"]
-      interval: 2s
-      timeout: 3s
-      retries: 10
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:
